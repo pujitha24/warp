@@ -1245,6 +1245,42 @@ def test_indexedarray_fill_struct(test, device):
     assert_np_equal(a4.numpy(), np.zeros(a4.shape, dtype=nptype))
 
 
+@wp.struct
+class IndexedArrayOnlyStruct:
+    a: wp.vec3
+    b: float
+
+
+@wp.kernel
+def copy_indexed_struct_kernel(
+    src: wp.indexedarray[IndexedArrayOnlyStruct], dst: wp.indexedarray[IndexedArrayOnlyStruct]
+):
+    i = wp.tid()
+    dst[i] = src[i]
+
+
+def test_indexedarray_struct_dtype_only(test, device):
+    # the struct is only used as the dtype of indexed array arguments
+    src = wp.zeros(4, dtype=IndexedArrayOnlyStruct, device=device)
+    dst = wp.zeros(4, dtype=IndexedArrayOnlyStruct, device=device)
+    src_np = src.numpy()
+    src_np["a"] = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]
+    src_np["b"] = [1.0, 2.0, 3.0, 4.0]
+    src = wp.array(src_np, dtype=IndexedArrayOnlyStruct, device=device)
+    indices = wp.array([3, 1], dtype=int, device=device)
+
+    wp.launch(
+        copy_indexed_struct_kernel,
+        dim=2,
+        inputs=[wp.indexedarray(src, [indices]), wp.indexedarray(dst, [indices])],
+        device=device,
+    )
+
+    dst_np = dst.numpy()
+    assert_np_equal(dst_np["a"], np.array([[0, 0, 0], [4, 5, 6], [0, 0, 0], [10, 11, 12]], dtype=np.float32))
+    assert_np_equal(dst_np["b"], np.array([0.0, 2.0, 0.0, 4.0], dtype=np.float32))
+
+
 devices = get_test_devices()
 
 
@@ -1267,6 +1303,9 @@ add_function_test(TestIndexedArray, "test_indexedarray_fill_vector", test_indexe
 add_function_test(TestIndexedArray, "test_indexedarray_fill_matrix", test_indexedarray_fill_matrix, devices=devices)
 add_function_test(TestIndexedArray, "test_indexedarray_fill_struct", test_indexedarray_fill_struct, devices=devices)
 add_function_test(TestIndexedArray, "test_indexedarray_in_struct", test_indexedarray_in_struct, devices=devices)
+add_function_test(
+    TestIndexedArray, "test_indexedarray_struct_dtype_only", test_indexedarray_struct_dtype_only, devices=devices
+)
 add_function_test(
     TestIndexedArray, "test_indexedarray_in_nested_struct", test_indexedarray_in_nested_struct, devices=devices
 )

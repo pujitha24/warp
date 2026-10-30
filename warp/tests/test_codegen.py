@@ -561,6 +561,30 @@ def test_error_collection_construct(test, device):
         wp.launch(kernel, dim=1, device=device)
 
 
+@wp.struct
+class ComparePair:
+    a: float
+    b: float
+
+
+def test_error_struct_comparison(test, device):
+    def kernel_fn(out: wp.array[int]):
+        p = ComparePair()
+        q = ComparePair()
+        if p < q:
+            out[0] = 1
+
+    def kernel_eq_fn(out: wp.array[int]):
+        p = ComparePair()
+        if p == 1:
+            out[0] = 1
+
+    for fn in (kernel_fn, kernel_eq_fn):
+        kernel = make_isolated_kernel(fn)
+        with test.assertRaisesRegex(wp.WarpCodegenTypeError, r"Comparison '(<|==)' is not supported between values"):
+            wp.launch(kernel, dim=1, inputs=[wp.zeros(1, dtype=int, device=device)], device=device)
+
+
 def test_error_unmatched_arguments(test, device):
     def kernel_1_fn():
         a = 1 * 1.0
@@ -2946,6 +2970,7 @@ add_function_test(TestCodeGen, func=test_error_global_var, name="test_error_glob
 add_function_test(
     TestCodeGen, func=test_error_collection_construct, name="test_error_collection_construct", devices=devices
 )
+add_function_test(TestCodeGen, func=test_error_struct_comparison, name="test_error_struct_comparison", devices=devices)
 add_function_test(
     TestCodeGen, func=test_error_unmatched_arguments, name="test_error_unmatched_arguments", devices=devices
 )

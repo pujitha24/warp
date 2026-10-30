@@ -2709,6 +2709,15 @@ class Adjoint:
     def add_comp(adj, op_strings, left, comps):
         output = adj.add_var(builtins.bool)
 
+        # Structs have no C++ comparison operators, so catch them here instead of in the C++ compiler
+        operands = [left, *comps]
+        for op, lhs, rhs in zip(op_strings, operands[:-1], operands[1:], strict=True):
+            if isinstance(lhs.type, Struct) or isinstance(rhs.type, Struct):
+                raise WarpCodegenTypeError(
+                    f"Comparison '{op}' is not supported between values of type "
+                    f"{type_repr(lhs.type)} and {type_repr(rhs.type)}."
+                )
+
         left = adj.load(left)
         s = output.emit() + " = " + ("(" * len(comps)) + left.emit() + " "
 
